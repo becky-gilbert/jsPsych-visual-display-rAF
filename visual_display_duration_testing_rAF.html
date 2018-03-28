@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Visual display rAF testing</title>
+    <script src = "jspsych-6.0.1/jspsych.js" type="text/javascript"></script>
+    <script src = "jspsych-6.0.1/plugins/jspsych-instructions.js" type="text/javascript"></script>
+    <script src = "jspsych-6.0.1/plugins/jspsych-image-keyboard-response.js" type="text/javascript"></script>
+    <script src = "jspsych-6.0.1/plugins/jspsych-call-function.js" type="text/javascript"></script>
+    <script src = "jspsych-html-keyboard-response-raf.js" type="text/javascript"></script>
+    <script src = "jspsych-call-function-wait.js" type="text/javascript"></script>
+    <!-- <script src= "/assets/javascripts/jatos.js"></script> -->
+    <link rel = "stylesheet" type="text/css" href="jspsych-6.0.1/css/jspsych.css">
+    <style type = "text/css">.jspsych-rt-target {display: inline-block; height:280px; width:280px; background-color:black; padding: 0px; margin: 0px;} body {background-color: rgb(195,195,195);}</style>
+</head>
+<body>
+</body>
+<script type="text/javascript">
+// jatos.onLoad(function() {
+
+    var min_iti = 500;
+    var max_iti = 1500;
+
+    var timeline = [];
+
+    var fps_est_n_trials = 100;
+    var frame_count = 0;
+    var frame_times = new Array(fps_est_n_trials);
+    var frame_diffs = new Array(fps_est_n_trials-1);
+    var fps_obj = {
+        est_fps: null
+    };
+
+    // use a prefixed version of rAF if necessary
+    // from https://msdn.microsoft.com/en-us/library/hh920765(v=vs.85).aspx
+    if (!window.requestAnimationFrame) {
+      window.requestAnimationFrame =
+      window.mozRequestAnimationFrame ||
+      window.webkitRequestAnimationFrame ||
+      window.oRequestAnimationFrame ||
+      // if there's no support for rAF then fall back to set timeout at 60 fps
+      function(callback) {
+        return window.setTimeout(callback, 1000/60);
+      };
+    }
+
+    // helper functions
+    function estimateFramesPerSec(timestamp, callback) {      
+        // from http://jsfiddle.net/bn8kbw3t/
+        if (frame_count > 0) {
+            var last_time = frame_times[frame_count-1];
+            frame_diffs[frame_count-1] = timestamp - last_time; 
+        }
+        frame_times[frame_count] = timestamp;
+        if (frame_count == fps_est_n_trials) {
+            var sum = frame_diffs.reduce(function(a, b) {return a + b;});
+            var avg = sum / (frame_diffs.length);
+            console.log('estimated frame duration: ', avg);
+            fps_obj.est_fps = avg;
+            callback();
+        } else {
+            frame_count++;
+            window.requestAnimationFrame(function(timestamp) {estimateFramesPerSec(timestamp, callback);});
+        }
+    }
+
+    function getCurrentIti() {
+        return Math.floor(Math.random()*(max_iti-min_iti))+min_iti;
+    }
+
+    // define instructions page
+    var instructions = {
+        type: 'instructions',
+        pages: ['<p>Visual display duration testing using a jspsych-html-keyboard-response plugin, modified to use requestAnimationFrame.</p><p>Black boxes will appear on the screen for fixed durations.</p><p>Information about the target duration and logged duration will appear in the console.</p><p>You can respond with the space bar - the response will be recorded, but the trial will not end after a response.</p><p>Click the &#39;Next&#39; button or press the space bar to start the task.</p>'],
+        key_forward: 'space',   
+        allow_keys: true,
+        show_clickable_nav: true,
+        button_label_next: 'Next'
+    };
+    timeline.push(instructions);
+
+    // trial to estimate duration between frames
+    // result is passed to the html-keyboard-response-raf plugin in order to adjust the target stim duration to a multiple of the frame rate
+    var est_fps_trial = {
+        type: 'call-function-wait',
+        func: function(callback) {
+            window.requestAnimationFrame(function(timestamp) {
+                estimateFramesPerSec(timestamp,callback);});
+        },
+        on_finish: function(data) {
+            data.est_frame_duration = fps_obj.est_fps;
+        }
+    };
+    timeline.push(est_fps_trial);
+
+    // define main stim display trials
+    var trials = {
+        type: 'html-keyboard-response-raf',
+        stimulus: '<div class="jspsych-rt-target"></div>',
+        choices: ['space'],
+        response_ends_trial: false,
+        est_frame_duration: function() {return fps_obj.est_fps;}, // estimated frame interval duration from call function trial
+        post_trial_gap: getCurrentIti,
+        data: {task_segment: 'main_trials'},
+        timeline: [ 
+            {stimulus_duration: 500, trial_duration: 500},
+            {stimulus_duration: 500, trial_duration: 500},
+            {stimulus_duration: 500, trial_duration: 500},
+            {stimulus_duration: 500, trial_duration: 500},
+            {stimulus_duration: 500, trial_duration: 500},
+            {stimulus_duration: 1000, trial_duration: 1000},
+            {stimulus_duration: 1000, trial_duration: 1000},
+            {stimulus_duration: 1000, trial_duration: 1000},
+            {stimulus_duration: 1000, trial_duration: 1000},
+            {stimulus_duration: 1000, trial_duration: 1000}
+        ]
+    };
+    timeline.push(trials);
+
+    jsPsych.init({
+        timeline: timeline,
+        on_finish: function() {
+            jsPsych.data.displayData();
+            //jsPsych.data.get().localSave('csv','visual_display_rAF_data.csv');
+            //jatos.submitResultData(jsPsych.data.get().json(), jatos.startNextComponent);
+        }
+    });
+//});
+</script>
+</html>
