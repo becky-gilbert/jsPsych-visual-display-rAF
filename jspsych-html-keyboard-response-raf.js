@@ -265,8 +265,8 @@ jsPsych.plugins["html-keyboard-response-raf"] = (function() {
         // checkForTimeouts will continue calling rAF until the target duration or frame count is reached
         raf_ref = window.requestAnimationFrame(function(timestamp) {
           frame_count=1;
-          // subtract 2 ms from the adjusted target stim duration to account for rounding errors
-          checkForTimeouts(timestamp, target_stim_duration_adj - 2, target_frame_count, hideStim);
+          // subtract 5 ms from the adjusted target stim duration to account for rounding errors
+          checkForTimeouts(timestamp, target_stim_duration_adj - 5, target_frame_count, hideStim);
         });
       }
     });
